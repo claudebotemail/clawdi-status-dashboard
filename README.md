@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Clawdi Status Dashboard
 
-## Getting Started
+A small **secured dashboard** (Next.js on Vercel) that shows green/red health for OpenClaw skills/integrations.
 
-First, run the development server:
+## Security model
+
+- **Google OAuth (NextAuth)**
+- **Hard allowlist**: only `ALLOWED_EMAIL` (set to `gilad@bregman.in`) can sign in
+- All pages are protected by middleware (except `/signin` and `/api/auth/*`)
+- Status updates are written via `POST /api/update` protected by a shared secret header: `x-dashboard-secret`
+
+## Storage
+
+Uses `@vercel/kv` (recommended backing: **Upstash Redis** via Vercel Marketplace).
+
+## Environment variables (Vercel Project → Settings → Environment Variables)
+
+Set these for **Production + Preview**:
+
+- `ALLOWED_EMAIL=gilad@bregman.in`
+- `NEXTAUTH_URL=https://<your-vercel-domain>`
+- `NEXTAUTH_SECRET=<openssl rand -base64 32>`
+- `GOOGLE_CLIENT_ID=<from Google Cloud OAuth client>`
+- `GOOGLE_CLIENT_SECRET=<from Google Cloud OAuth client>`
+- `DASHBOARD_UPDATE_SECRET=<openssl rand -base64 32>`
+
+Upstash/Vercel will also add:
+
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+
+## Google OAuth redirect URI
+
+In Google Cloud Console → OAuth Client → add:
+
+- `https://<your-vercel-domain>/api/auth/callback/google`
+
+(Optional for local dev)
+- `http://localhost:3000/api/auth/callback/google`
+
+## Posting an update
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+curl -X POST "https://<your-vercel-domain>/api/update" \
+  -H "content-type: application/json" \
+  -H "x-dashboard-secret: $DASHBOARD_UPDATE_SECRET" \
+  -d '{
+    "source": "openclaw",
+    "checks": [
+      {"key":"phone-agent","label":"phone-agent (:8080)","ok":true,"detail":"listening"},
+      {"key":"ngrok","label":"ngrok tunnel","ok":true,"detail":"https://…"}
+    ]
+  }'
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env.local
+npm i
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open http://localhost:3000
